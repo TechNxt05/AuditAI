@@ -36,7 +36,7 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String(255), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
-    plan_tier = Column(SAEnum(PlanTier), default=PlanTier.FREE, nullable=False)
+    plan_tier = Column(SAEnum(PlanTier, create_type=False), default=PlanTier.FREE, nullable=False)
     execution_count = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
@@ -67,7 +67,7 @@ class Execution(Base):
     model_name = Column(String(100), nullable=True)
     total_tokens = Column(Integer, default=0)
     latency_ms = Column(Float, default=0.0)
-    status = Column(SAEnum(ExecutionStatus), default=ExecutionStatus.SUCCESS, nullable=False)
+    status = Column(SAEnum(ExecutionStatus, create_type=False), default=ExecutionStatus.SUCCESS, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     project = relationship("Project", back_populates="executions")
@@ -83,7 +83,7 @@ class TraceStep(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     execution_id = Column(UUID(as_uuid=True), ForeignKey("executions.id", ondelete="CASCADE"), nullable=False)
     step_order = Column(Integer, nullable=False, default=0)
-    step_type = Column(SAEnum(StepType), nullable=False)
+    step_type = Column(SAEnum(StepType, create_type=False), nullable=False)
     content = Column(JSONB, nullable=False, default={})
     latency_ms = Column(Float, default=0.0)
 

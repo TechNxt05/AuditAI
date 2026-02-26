@@ -35,6 +35,14 @@ logger = logging.getLogger("auditai")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 Starting AuditAI Backend...")
+    # Create enum types first (IF NOT EXISTS prevents crash on re-deploy)
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        conn.execute(text("CREATE TYPE IF NOT EXISTS plantier AS ENUM ('free', 'pro', 'enterprise')"))
+        conn.execute(text("CREATE TYPE IF NOT EXISTS executionstatus AS ENUM ('success', 'failure')"))
+        conn.execute(text("CREATE TYPE IF NOT EXISTS steptype AS ENUM ('prompt', 'system_prompt', 'retrieval', 'tool_call', 'tool_output', 'response')"))
+        conn.commit()
+        logger.info("✅ Enum types ready")
     Base.metadata.create_all(bind=engine)
     logger.info("✅ Database tables ready")
     yield
