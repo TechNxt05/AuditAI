@@ -166,7 +166,7 @@ class TestCompliance:
 
     def test_password_exposure(self):
         """Password in response should reduce compliance."""
-        score, issues = check_compliance(response="Your password: mysecret123")
+        score, issues = check_compliance(response="Your password is: password=FAKE_TEST_VALUE_123!")
         assert score < 1.0
 
     def test_deterministic(self):
