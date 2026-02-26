@@ -3,9 +3,9 @@ from typing import Optional
 
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/auditai"
+    DATABASE_URL: str = ""  # Required: set via environment variable
     REDIS_URL: Optional[str] = None
-    SECRET_KEY: str = "change-me-in-production-use-a-real-secret-key"
+    SECRET_KEY: str = ""  # Required: set via environment variable
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
     OPENAI_KEY: Optional[str] = None
