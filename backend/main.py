@@ -35,12 +35,21 @@ logger = logging.getLogger("auditai")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 Starting AuditAI Backend...")
-    # Create enum types first (IF NOT EXISTS prevents crash on re-deploy)
+    # Create enum types safely (PostgreSQL has no CREATE TYPE IF NOT EXISTS)
     from sqlalchemy import text
     with engine.connect() as conn:
-        conn.execute(text("CREATE TYPE IF NOT EXISTS plantier AS ENUM ('free', 'pro', 'enterprise')"))
-        conn.execute(text("CREATE TYPE IF NOT EXISTS executionstatus AS ENUM ('success', 'failure')"))
-        conn.execute(text("CREATE TYPE IF NOT EXISTS steptype AS ENUM ('prompt', 'system_prompt', 'retrieval', 'tool_call', 'tool_output', 'response')"))
+        for type_name, values in [
+            ("plantier", "'free', 'pro', 'enterprise'"),
+            ("executionstatus", "'success', 'failure'"),
+            ("steptype", "'prompt', 'system_prompt', 'retrieval', 'tool_call', 'tool_output', 'response'"),
+        ]:
+            conn.execute(text(f"""
+                DO $$ BEGIN
+                    CREATE TYPE {type_name} AS ENUM ({values});
+                EXCEPTION
+                    WHEN duplicate_object THEN NULL;
+                END $$;
+            """))
         conn.commit()
         logger.info("✅ Enum types ready")
     Base.metadata.create_all(bind=engine)
