@@ -127,10 +127,11 @@ graph LR
     subgraph Backend ["⚡ FastAPI Backend"]
         AUTH["🔐 Auth"]
         INGEST["📡 Ingestion"]
-        EVAL["🧠 Evaluator"]
+        EVAL["🧠 Evaluator\n(+SentenceTransformers)"]
         ADV["🧪 Adversarial"]
+        BENCH["📊 Benchmarks"]
         REPLAY["🔁 Replay"]
-        DASH["📊 Dashboard"]
+        DASH["📈 Dashboard"]
     end
 
     subgraph Storage
@@ -138,7 +139,7 @@ graph LR
     end
 
     subgraph Frontend ["🖥️ Next.js Frontend"]
-        UI["Dashboard · Projects\nExecution Detail · Risk Insights"]
+        UI["Dashboard · Projects\nBenchmarks · Risk Insights"]
     end
 
     SDK --> INGEST
@@ -146,9 +147,11 @@ graph LR
     INGEST --> DB
     EVAL --> DB
     ADV --> DB
+    BENCH --> DB
     DASH --> DB
     UI --> AUTH
     UI --> DASH
+    UI --> BENCH
     UI --> EVAL
 ```
 

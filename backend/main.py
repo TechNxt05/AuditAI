@@ -23,6 +23,7 @@ from routes.projects import router as projects_router
 from routes.executions import router as executions_router
 from routes.adversarial import router as adversarial_router
 from routes.dashboard import router as dashboard_router
+from routes.benchmark import router as benchmark_router
 
 # Set up logging
 logging.basicConfig(
@@ -99,6 +100,7 @@ app.include_router(projects_router, prefix="/api")
 app.include_router(executions_router, prefix="/api")
 app.include_router(adversarial_router, prefix="/api")
 app.include_router(dashboard_router, prefix="/api")
+app.include_router(benchmark_router, prefix="/api")
 
 
 @app.get("/")

@@ -14,6 +14,7 @@ from evaluator.faithfulness import score_faithfulness
 from evaluator.injection import detect_injection
 from evaluator.tool_validator import validate_tool_usage
 from evaluator.compliance import check_compliance
+from evaluator.embedding_similarity import evaluate_groundedness
 
 
 def _extract_trace_data(execution: Execution) -> dict:
@@ -61,6 +62,11 @@ def run_evaluation(db: Session, execution: Execution) -> Evaluation:
         retrieval_docs=trace_data["retrieval_docs"],
     )
 
+    embedding_grounded_score = evaluate_groundedness(
+        response=trace_data["response"],
+        retrieval_docs=trace_data["retrieval_docs"],
+    )
+
     injection_risk_score = detect_injection(
         prompt=trace_data["prompt"],
         system_prompt=trace_data["system_prompt"],
@@ -79,11 +85,12 @@ def run_evaluation(db: Session, execution: Execution) -> Evaluation:
 
     overall_score = round(
         (
-            hallucination_score * 0.25 +
-            faithfulness_score * 0.25 +
-            (1.0 - injection_risk_score) * 0.20 +
+            hallucination_score * 0.20 +
+            faithfulness_score * 0.20 +
+            embedding_grounded_score * 0.20 +
+            (1.0 - injection_risk_score) * 0.15 +
             tool_usage_score * 0.15 +
-            compliance_score * 0.15
+            compliance_score * 0.10
         ),
         4,
     )
@@ -91,6 +98,7 @@ def run_evaluation(db: Session, execution: Execution) -> Evaluation:
     failure_taxonomy = {
         "hallucination_issues": [] if hallucination_score > 0.7 else ["Unsupported claims detected"],
         "faithfulness_issues": [] if faithfulness_score > 0.7 else ["Retrieved documents not fully utilized"],
+        "embedding_issues": [] if embedding_grounded_score > 0.6 else ["Low semantic grounding"],
         "injection_risks": [] if injection_risk_score < 0.3 else ["Prompt injection patterns detected"],
         "tool_issues": [] if tool_usage_score > 0.7 else ["Tool usage issues detected"],
         "compliance_issues": compliance_details,
@@ -100,6 +108,7 @@ def run_evaluation(db: Session, execution: Execution) -> Evaluation:
         execution_id=execution.id,
         hallucination_score=hallucination_score,
         faithfulness_score=faithfulness_score,
+        embedding_grounded_score=embedding_grounded_score,
         injection_risk_score=injection_risk_score,
         tool_usage_score=tool_usage_score,
         compliance_score=compliance_score,

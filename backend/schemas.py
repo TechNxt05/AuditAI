@@ -80,6 +80,7 @@ class ExecutionOut(BaseModel):
     model_name: Optional[str]
     total_tokens: int
     latency_ms: float
+    estimated_cost: float = 0.0
     status: str
     created_at: datetime
     trace_steps: List[TraceStepOut] = []
@@ -94,6 +95,7 @@ class ExecutionListOut(BaseModel):
     model_name: Optional[str]
     total_tokens: int
     latency_ms: float
+    estimated_cost: float = 0.0
     status: str
     created_at: datetime
 
@@ -110,6 +112,7 @@ class EvaluationOut(BaseModel):
     injection_risk_score: float
     compliance_score: float
     tool_usage_score: float
+    embedding_grounded_score: float = 0.0
     overall_score: float
     failure_taxonomy: Dict[str, Any]
     created_at: datetime
@@ -159,3 +162,45 @@ class SDKIngestionPayload(BaseModel):
     model: str = "unknown"
     total_tokens: int = 0
     latency_ms: float = 0.0
+
+
+# ──── Benchmarks ────
+class BenchmarkItemData(BaseModel):
+    question: str
+    expected_answer: str
+    retrieval_docs: List[str] = []
+
+
+class BenchmarkRunRequest(BaseModel):
+    project_id: uuid.UUID
+    dataset_name: str
+    model: str
+    items: List[BenchmarkItemData]
+
+
+class BenchmarkItemOut(BaseModel):
+    id: uuid.UUID
+    run_id: uuid.UUID
+    question: str
+    expected_answer: str
+    actual_response: Optional[str]
+    overall_score: float
+
+    class Config:
+        from_attributes = True
+
+
+class BenchmarkRunOut(BaseModel):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    dataset_name: str
+    model: str
+    avg_score: float
+    hallucination_rate: float
+    faithfulness_rate: float
+    latency_avg: float
+    created_at: datetime
+    items: List[BenchmarkItemOut] = []
+
+    class Config:
+        from_attributes = True

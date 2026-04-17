@@ -61,4 +61,10 @@ export const api = {
 
   // Dashboard
   getDashboard: () => request("/dashboard/stats"),
+
+  // Benchmarks
+  runBenchmark: (payload: any) =>
+    request("/benchmark/run", { method: "POST", body: JSON.stringify(payload) }),
+  listBenchmarks: (projectId: string) =>
+    request(`/benchmark/?project_id=${projectId}`),
 };
