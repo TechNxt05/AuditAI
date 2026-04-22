@@ -5,12 +5,29 @@ import Link from "next/link";
 import { Shield, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
-    const { login } = useAuth();
+    const { login, register } = useAuth();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPwd, setShowPwd] = useState(false);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+
+    const handleDemoLogin = async () => {
+        setError("");
+        setLoading(true);
+        try {
+            try {
+                await login("demo@example.com", "demo123");
+            } catch {
+                await register("demo@example.com", "demo123");
+            }
+            window.location.href = "/dashboard";
+        } catch (err: any) {
+            setError(err.message || "Demo login failed");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -84,6 +101,21 @@ export default function LoginPage() {
 
                     <button type="submit" className="glow-btn w-full" disabled={loading}>
                         {loading ? "Signing in..." : "Sign In"}
+                    </button>
+
+                    <div className="relative flex items-center py-2">
+                        <div className="flex-grow border-t border-gray-700/50"></div>
+                        <span className="flex-shrink-0 mx-4 text-gray-500 text-sm">or</span>
+                        <div className="flex-grow border-t border-gray-700/50"></div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={handleDemoLogin}
+                        className="w-full py-2.5 px-4 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 rounded-xl text-sm font-semibold text-indigo-400 transition-all duration-200"
+                        disabled={loading}
+                    >
+                        Demo Login
                     </button>
                 </form>
 
