@@ -21,14 +21,12 @@ class TokenResponse(BaseModel):
 
 
 class UserOut(BaseModel):
+    model_config = {"from_attributes": True}
     id: uuid.UUID
     email: str
     plan_tier: str
     execution_count: int
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 # ──── Projects ────
@@ -37,13 +35,11 @@ class ProjectCreate(BaseModel):
 
 
 class ProjectOut(BaseModel):
+    model_config = {"from_attributes": True}
     id: uuid.UUID
     user_id: uuid.UUID
     name: str
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 # ──── Trace Steps ────
@@ -54,14 +50,12 @@ class TraceStepIn(BaseModel):
 
 
 class TraceStepOut(BaseModel):
+    model_config = {"from_attributes": True}
     id: uuid.UUID
     step_order: int
     step_type: str
     content: Dict[str, Any]
     latency_ms: float
-
-    class Config:
-        from_attributes = True
 
 
 # ──── Executions ────
@@ -76,7 +70,10 @@ class ExecutionCreate(BaseModel):
 
 
 class ExecutionOut(BaseModel):
-    model_config = {"protected_namespaces": ()}
+    model_config = {
+        "from_attributes": True,
+        "protected_namespaces": ()
+    }
     id: uuid.UUID
     project_id: uuid.UUID
     model_name: Optional[str]
@@ -87,12 +84,12 @@ class ExecutionOut(BaseModel):
     created_at: datetime
     trace_steps: List[TraceStepOut] = []
 
-    class Config:
-        from_attributes = True
-
 
 class ExecutionListOut(BaseModel):
-    model_config = {"protected_namespaces": ()}
+    model_config = {
+        "from_attributes": True,
+        "protected_namespaces": ()
+    }
     id: uuid.UUID
     project_id: uuid.UUID
     model_name: Optional[str]
@@ -102,12 +99,10 @@ class ExecutionListOut(BaseModel):
     status: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 # ──── Evaluations ────
 class EvaluationOut(BaseModel):
+    model_config = {"from_attributes": True}
     id: uuid.UUID
     execution_id: uuid.UUID
     hallucination_score: float
@@ -120,21 +115,16 @@ class EvaluationOut(BaseModel):
     failure_taxonomy: Dict[str, Any]
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 # ──── Adversarial Tests ────
 class AdversarialTestOut(BaseModel):
+    model_config = {"from_attributes": True}
     id: uuid.UUID
     execution_id: uuid.UUID
     test_type: str
     result_score: float
     details: Dict[str, Any]
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 # ──── Replay ────
@@ -184,6 +174,7 @@ class BenchmarkRunRequest(BaseModel):
 
 
 class BenchmarkItemOut(BaseModel):
+    model_config = {"from_attributes": True}
     id: uuid.UUID
     run_id: uuid.UUID
     question: str
@@ -191,12 +182,12 @@ class BenchmarkItemOut(BaseModel):
     actual_response: Optional[str]
     overall_score: float
 
-    class Config:
-        from_attributes = True
-
 
 class BenchmarkRunOut(BaseModel):
-    model_config = {"protected_namespaces": ()}
+    model_config = {
+        "from_attributes": True,
+        "protected_namespaces": ()
+    }
     id: uuid.UUID
     project_id: uuid.UUID
     dataset_name: str
@@ -207,6 +198,3 @@ class BenchmarkRunOut(BaseModel):
     latency_avg: float
     created_at: datetime
     items: List[BenchmarkItemOut] = []
-
-    class Config:
-        from_attributes = True
