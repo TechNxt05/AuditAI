@@ -53,8 +53,14 @@ async def lifespan(app: FastAPI):
             """))
         conn.commit()
         logger.info("✅ Enum types ready")
-    Base.metadata.create_all(bind=engine)
-    logger.info("✅ Database tables ready")
+    
+    # Handle race conditions in multi-worker environments
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("✅ Database tables ready")
+    except Exception as e:
+        logger.warning(f"⚠️ Database initialization warning (may be concurrent workers): {e}")
+    
     yield
     logger.info("👋 Shutting down AuditAI Backend")
 
