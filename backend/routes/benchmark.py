@@ -1,12 +1,11 @@
 import uuid
-from typing import Any
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from database import get_db
 from models import (
     Project, Execution, TraceStep, StepType, 
-    BenchmarkRun, BenchmarkItem
+    BenchmarkRun, BenchmarkItem, User
 )
 from schemas import BenchmarkRunRequest, BenchmarkRunOut
 from deps import get_current_user
@@ -20,7 +19,7 @@ router = APIRouter(prefix="/benchmark", tags=["Benchmarks"])
 def run_benchmark(
     request: BenchmarkRunRequest,
     db: Session = Depends(get_db),
-    current_user: Any = Depends(get_current_user),  # typing doesn't matter much locally
+    current_user: User = Depends(get_current_user),  # typing doesn't matter much locally
 ):
     # Verify project
     project = db.query(Project).filter(
@@ -116,7 +115,7 @@ def run_benchmark(
 def list_benchmarks(
     project_id: str,
     db: Session = Depends(get_db),
-    current_user: Any = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     project = db.query(Project).filter(
         Project.id == project_id,

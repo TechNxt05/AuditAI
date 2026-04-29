@@ -66,6 +66,7 @@ class TraceStepOut(BaseModel):
 
 # ──── Executions ────
 class ExecutionCreate(BaseModel):
+    model_config = {"protected_namespaces": ()}
     project_id: uuid.UUID
     model_name: Optional[str] = None
     total_tokens: int = 0
@@ -75,6 +76,7 @@ class ExecutionCreate(BaseModel):
 
 
 class ExecutionOut(BaseModel):
+    model_config = {"protected_namespaces": ()}
     id: uuid.UUID
     project_id: uuid.UUID
     model_name: Optional[str]
@@ -90,6 +92,7 @@ class ExecutionOut(BaseModel):
 
 
 class ExecutionListOut(BaseModel):
+    model_config = {"protected_namespaces": ()}
     id: uuid.UUID
     project_id: uuid.UUID
     model_name: Optional[str]
@@ -152,6 +155,7 @@ class DashboardStats(BaseModel):
 
 # ──── SDK Ingestion ────
 class SDKIngestionPayload(BaseModel):
+    model_config = {"protected_namespaces": ()}
     project_name: str
     prompt: str
     system_prompt: Optional[str] = None
@@ -172,6 +176,7 @@ class BenchmarkItemData(BaseModel):
 
 
 class BenchmarkRunRequest(BaseModel):
+    model_config = {"protected_namespaces": ()}
     project_id: uuid.UUID
     dataset_name: str
     model: str
@@ -191,6 +196,7 @@ class BenchmarkItemOut(BaseModel):
 
 
 class BenchmarkRunOut(BaseModel):
+    model_config = {"protected_namespaces": ()}
     id: uuid.UUID
     project_id: uuid.UUID
     dataset_name: str
