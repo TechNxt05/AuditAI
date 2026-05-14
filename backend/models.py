@@ -3,7 +3,7 @@ import enum
 from datetime import datetime
 from sqlalchemy import (
     Column, String, Float, Integer, DateTime, ForeignKey,
-    Text, Enum as SAEnum, JSON, UniqueConstraint
+    Text, Enum as SAEnum, JSON, UniqueConstraint, Boolean
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
@@ -151,3 +151,72 @@ class BenchmarkItem(Base):
     overall_score = Column(Float, default=0.0)
 
     run = relationship("BenchmarkRun", back_populates="items")
+
+
+class AegisTrace(Base):
+    __tablename__ = "aegis_traces"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    execution_id = Column(UUID(as_uuid=True), ForeignKey("executions.id", ondelete="CASCADE"), nullable=True)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    
+    agent_input = Column(Text, nullable=False)
+    agent_output = Column(Text, nullable=False)
+    context_docs = Column(JSONB, default=[])
+    
+    hallucination_score = Column(Float, default=0.0)
+    injection_score = Column(Float, default=0.0)
+    grounding_score = Column(Float, default=0.0)
+    overall_risk_score = Column(Float, default=0.0)
+    risk_level = Column(String, default="LOW")
+    
+    flags = Column(JSONB, default=[])
+    explanations = Column(JSONB, default=[])
+    
+    policy_mode = Column(String, default="warn")
+    was_blocked = Column(Boolean, default=False)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Benchmark(Base):
+    __tablename__ = "benchmarks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
+    
+    name = Column(String, nullable=False)
+    description = Column(Text, default="")
+    status = Column(String, default="pending")
+    
+    models_compared = Column(JSONB, default=[])
+    test_cases = Column(JSONB, default=[])
+    results = Column(JSONB, default={})
+    
+    winner_model = Column(String, nullable=True)
+    winner_reason = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+
+
+class BenchmarkResult(Base):
+    __tablename__ = "benchmark_results"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    benchmark_id = Column(UUID(as_uuid=True), ForeignKey("benchmarks.id", ondelete="CASCADE"))
+    model_name = Column(String, nullable=False)
+    
+    avg_hallucination_score = Column(Float, default=0.0)
+    avg_faithfulness_score = Column(Float, default=0.0)
+    avg_injection_risk = Column(Float, default=0.0)
+    avg_compliance_score = Column(Float, default=0.0)
+    avg_overall_score = Column(Float, default=0.0)
+    avg_latency_ms = Column(Float, default=0.0)
+    
+    case_results = Column(JSONB, default=[])
+    
+    rank = Column(Integer, default=1)
+

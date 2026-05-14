@@ -124,3 +124,54 @@ class AuditAI:
     def get_dashboard(self) -> dict:
         """Get dashboard statistics."""
         return self._get("/api/dashboard/stats")
+
+    def _resolve_project(self, project_name: str) -> str:
+        if not project_name:
+            raise ValueError("project_name is required")
+        projects = self.list_projects()
+        for p in projects:
+            if p.get("name") == project_name:
+                return p.get("id")
+        # If not found, maybe create it or raise. The ingest endpoint creates it.
+        # But we need ID here, so raise.
+        raise ValueError(f"Project '{project_name}' not found. Please create it first.")
+
+    def evaluate_with_aegis(
+        self,
+        agent_input: str,
+        agent_output: str,
+        context_docs: list[str] = None,
+        policy_mode: str = "warn",
+        project_name: str = None,
+    ) -> dict:
+        """
+        Run aegis-agent safety evaluation on an agent's output.
+        
+        Returns risk score, risk level, flags, and whether output was blocked.
+        """
+        return self._post("/api/aegis/evaluate", {
+            "agent_input": agent_input,
+            "agent_output": agent_output,
+            "context_docs": context_docs or [],
+            "policy_mode": policy_mode,
+            "project_id": self._resolve_project(project_name),
+        })
+
+    def create_benchmark(
+        self,
+        name: str,
+        models: list[str],
+        test_cases: list[dict],
+        project_name: str = None,
+    ) -> dict:
+        """
+        Create and run a model reliability benchmark.
+        """
+        benchmark = self._post("/api/benchmarks/", {
+            "project_id": self._resolve_project(project_name),
+            "name": name,
+            "models": models,
+            "test_cases": test_cases
+        })
+        self._post(f"/api/benchmarks/{benchmark['id']}/run", {})
+        return benchmark

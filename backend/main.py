@@ -105,8 +105,14 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(projects_router, prefix="/api")
 app.include_router(executions_router, prefix="/api")
 app.include_router(adversarial_router, prefix="/api")
-app.include_router(dashboard_router, prefix="/api")
+from routes.benchmark import router as benchmark_router
+from routes.benchmarks import router as model_benchmarks_router
+
 app.include_router(benchmark_router, prefix="/api")
+app.include_router(model_benchmarks_router, prefix="/api")
+
+from routes.aegis import router as aegis_router
+app.include_router(aegis_router)
 
 
 @app.get("/")
@@ -121,4 +127,9 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "healthy"}
+    from datetime import datetime, timezone
+    return {
+        "status": "ok",
+        "version": "1.0.0",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }

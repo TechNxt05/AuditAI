@@ -2,103 +2,109 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func, cast, Date
 from database import get_db
-from models import Execution, Evaluation, Project, User
-from schemas import DashboardStats
-from deps import get_current_user
-from datetime import datetime, timedelta
+from models import Execution, Evaluation, Project, User, AegisTrace, Benchmark
 
-router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
-
-
-@router.get("/stats", response_model=DashboardStats)
+@router.get("/stats")
 def get_dashboard_stats(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Base query filtered by user
-    user_executions = (
-        db.query(Execution)
-        .join(Project)
-        .filter(Project.user_id == current_user.id)
-    )
-
-    total_executions = user_executions.count()
-
-    # Average scores from evaluations
-    eval_stats = (
-        db.query(
-            func.avg(Evaluation.overall_score).label("avg_reliability"),
-            func.avg(Evaluation.injection_risk_score).label("avg_injection_risk"),
-        )
-        .join(Execution)
-        .join(Project)
-        .filter(Project.user_id == current_user.id)
-        .first()
-    )
-
-    avg_reliability = round(float(eval_stats.avg_reliability or 0), 3)
-    avg_injection_risk = round(float(eval_stats.avg_injection_risk or 0), 3)
-
-    # Average latency and total tokens
-    exec_stats = (
-        db.query(
-            func.avg(Execution.latency_ms).label("avg_latency"),
-            func.sum(Execution.total_tokens).label("total_tokens"),
-        )
-        .join(Project)
-        .filter(Project.user_id == current_user.id)
-        .first()
-    )
-
-    avg_latency = round(float(exec_stats.avg_latency or 0), 2)
-    total_tokens = int(exec_stats.total_tokens or 0)
-
-    # Executions by day (last 30 days)
+    user_id = current_user.id
+    
+    total_executions = db.query(Execution).join(Project).filter(Project.user_id == user_id).count()
+    
+    # 30-day trend (executions per day)
     thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-    daily_counts = (
-        db.query(
-            cast(Execution.created_at, Date).label("day"),
-            func.count(Execution.id).label("count"),
-        )
-        .join(Project)
-        .filter(Project.user_id == current_user.id)
-        .filter(Execution.created_at >= thirty_days_ago)
-        .group_by(cast(Execution.created_at, Date))
-        .order_by(cast(Execution.created_at, Date))
-        .all()
-    )
-    executions_by_day = [{"date": str(row.day), "count": row.count} for row in daily_counts]
+    daily_counts = db.query(
+        cast(Execution.created_at, Date).label("date"),
+        func.count(Execution.id).label("count")
+    ).join(Project).filter(
+        Project.user_id == user_id,
+        Execution.created_at >= thirty_days_ago
+    ).group_by(cast(Execution.created_at, Date)).all()
+    
+    # Score distribution (histogram buckets)
+    # Using python to group to avoid complex SQL for simplicity
+    evaluations = db.query(Evaluation.overall_score, Evaluation.failure_taxonomy, Evaluation.hallucination_score, Evaluation.faithfulness_score, Evaluation.injection_risk_score, Evaluation.compliance_score, Evaluation.tool_usage_score).join(Execution).join(Project).filter(Project.user_id == user_id).all()
+    
+    score_distribution_map = {f"0.{i}-0.{i+1}": 0 for i in range(10)}
+    score_distribution_map["0.9-1.0"] = 0 # For exactly 1.0
+    
+    failure_counts = {}
+    sum_hallucination = 0
+    sum_faithfulness = 0
+    sum_injection = 0
+    sum_compliance = 0
+    sum_tool = 0
+    sum_overall = 0
+    eval_count = len(evaluations)
+    
+    high_risk_count = 0
 
-    # Score trend (last 30 days)
-    score_trend_rows = (
-        db.query(
-            cast(Evaluation.created_at, Date).label("day"),
-            func.avg(Evaluation.overall_score).label("avg_score"),
-            func.avg(Evaluation.injection_risk_score).label("avg_injection"),
-        )
-        .join(Execution)
-        .join(Project)
-        .filter(Project.user_id == current_user.id)
-        .filter(Evaluation.created_at >= thirty_days_ago)
-        .group_by(cast(Evaluation.created_at, Date))
-        .order_by(cast(Evaluation.created_at, Date))
-        .all()
-    )
-    score_trend = [
-        {
-            "date": str(row.day),
-            "reliability": round(float(row.avg_score or 0), 3),
-            "injection_risk": round(float(row.avg_injection or 0), 3),
-        }
-        for row in score_trend_rows
-    ]
+    for e in evaluations:
+        score = e.overall_score or 0
+        sum_hallucination += e.hallucination_score or 0
+        sum_faithfulness += e.faithfulness_score or 0
+        sum_injection += e.injection_risk_score or 0
+        sum_compliance += e.compliance_score or 0
+        sum_tool += e.tool_usage_score or 0
+        sum_overall += score
+        
+        if score < 0.5:
+            high_risk_count += 1
+            
+        bucket = min(int(score * 10), 9)
+        bucket_key = f"0.{bucket}-0.{bucket+1}"
+        score_distribution_map[bucket_key] += 1
+        
+        if e.failure_taxonomy:
+            for fail_type in e.failure_taxonomy:
+                failure_counts[fail_type] = failure_counts.get(fail_type, 0) + 1
+                
+    score_distribution = [{"bucket": k, "count": v} for k, v in score_distribution_map.items()]
+    top_failures = [{"category": k, "count": v} for k, v in sorted(failure_counts.items(), key=lambda x: x[1], reverse=True)[:5]]
+    
+    # Aegis stats
+    aegis_total = db.query(AegisTrace).filter(AegisTrace.user_id == user_id).count()
+    aegis_blocked = db.query(AegisTrace).filter(AegisTrace.user_id == user_id, AegisTrace.was_blocked == True).count()
+    aegis_avg_risk = db.query(func.avg(AegisTrace.overall_risk_score)).filter(AegisTrace.user_id == user_id).scalar()
+    
+    # Benchmark stats
+    benchmark_count = db.query(Benchmark).filter(Benchmark.user_id == user_id).count()
+    
+    radar_averages = {
+        "hallucination": sum_hallucination / eval_count if eval_count else 0,
+        "faithfulness": sum_faithfulness / eval_count if eval_count else 0,
+        "injection": sum_injection / eval_count if eval_count else 0,
+        "compliance": sum_compliance / eval_count if eval_count else 0,
+        "tool_usage": sum_tool / eval_count if eval_count else 0,
+    }
 
-    return DashboardStats(
-        total_executions=total_executions,
-        avg_reliability_score=avg_reliability,
-        avg_injection_risk=avg_injection_risk,
-        avg_latency_ms=avg_latency,
-        total_tokens_used=total_tokens,
-        executions_by_day=executions_by_day,
-        score_trend=score_trend,
-    )
+    recent_executions = db.query(Execution).join(Project).filter(Project.user_id == user_id).order_by(Execution.created_at.desc()).limit(5).all()
+    recent_exec_data = []
+    for ex in recent_executions:
+        # get eval
+        ev = db.query(Evaluation).filter(Evaluation.execution_id == ex.id).first()
+        recent_exec_data.append({
+            "id": str(ex.id),
+            "project_name": ex.project.name,
+            "model": ex.model_name,
+            "score": ev.overall_score if ev else 0,
+            "flags": list(ev.failure_taxonomy.keys()) if ev and ev.failure_taxonomy else [],
+            "created_at": ex.created_at.isoformat()
+        })
+
+    return {
+        "total_executions": total_executions,
+        "avg_overall_score": sum_overall / eval_count if eval_count else 0,
+        "high_risk_count": high_risk_count,
+        "daily_execution_trend": [{"date": str(r.date), "count": r.count} for r in daily_counts],
+        "score_distribution": score_distribution,
+        "top_failures": top_failures,
+        "aegis_total_evaluations": aegis_total,
+        "aegis_block_rate": (aegis_blocked / aegis_total * 100) if aegis_total > 0 else 0,
+        "aegis_avg_risk": float(aegis_avg_risk or 0),
+        "benchmark_count": benchmark_count,
+        "radar_averages": radar_averages,
+        "recent_executions": recent_exec_data
+    }

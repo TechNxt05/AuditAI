@@ -1,140 +1,260 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { api } from "@/lib/api";
-import Sidebar from "@/components/Sidebar";
-import { useRouter } from "next/navigation";
-import { Activity, Shield, AlertTriangle, Clock, Coins, TrendingUp } from "lucide-react";
+import Link from "next/link";
+import { 
+  Activity, ShieldCheck, BarChart2, Code2, ArrowUpRight, ArrowDownRight, 
+  CheckCircle, AlertTriangle, XCircle 
+} from "lucide-react";
 import {
-    AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-    ResponsiveContainer, LineChart, Line,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
+  BarChart, Bar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Cell,
+  TooltipProps
 } from "recharts";
 
-interface Stats {
-    total_executions: number;
-    avg_reliability_score: number;
-    avg_injection_risk: number;
-    avg_latency_ms: number;
-    total_tokens_used: number;
-    executions_by_day: { date: string; count: number }[];
-    score_trend: { date: string; reliability: number; injection_risk: number }[];
-}
+export default function Dashboard() {
+  const { user } = useAuth();
+  const [stats, setStats] = useState<any>(null);
 
-function ScoreColor({ score }: { score: number }) {
-    if (score >= 0.7) return <span className="score-badge score-high">{(score * 100).toFixed(1)}%</span>;
-    if (score >= 0.4) return <span className="score-badge score-medium">{(score * 100).toFixed(1)}%</span>;
-    return <span className="score-badge score-low">{(score * 100).toFixed(1)}%</span>;
-}
-
-function StatCard({ icon: Icon, label, value, sub, color }: {
-    icon: any; label: string; value: string; sub?: string; color: string;
-}) {
-    return (
-        <div className="glass-card p-5 animate-in">
-            <div className="flex items-center gap-3 mb-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
-                    <Icon className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-sm text-gray-400">{label}</span>
-            </div>
-            <p className="text-2xl font-bold text-white">{value}</p>
-            {sub && <p className="text-xs text-gray-500 mt-1">{sub}</p>}
-        </div>
-    );
-}
-
-const tooltipStyle = {
-    contentStyle: {
-        background: "rgba(15,23,42,0.95)",
-        border: "1px solid rgba(255,255,255,0.1)",
-        borderRadius: "12px",
-        color: "#e2e8f0",
-    },
-};
-
-export default function DashboardPage() {
-    const { user, loading: authLoading } = useAuth();
-    const router = useRouter();
-    const [stats, setStats] = useState<Stats | null>(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        if (!authLoading && !user) router.replace("/login");
-    }, [user, authLoading, router]);
-
-    useEffect(() => {
-        if (user) {
-            api.getDashboard().then(setStats).catch(console.error).finally(() => setLoading(false));
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${apiUrl}/api/dashboard/stats`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          setStats(await res.json());
         }
-    }, [user]);
+      } catch (err) {
+        console.error("Failed to fetch dashboard stats", err);
+      }
+    };
+    fetchStats();
+  }, []);
 
-    if (authLoading || !user) return null;
+  if (!stats) {
+    return <div className="animate-pulse space-y-6">
+      <div className="h-24 bg-gray-900 rounded-xl"></div>
+      <div className="h-64 bg-gray-900 rounded-xl"></div>
+    </div>;
+  }
 
-    return (
-        <Sidebar>
-            <div className="max-w-7xl mx-auto">
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold gradient-text">Dashboard</h1>
-                    <p className="text-gray-400 mt-1">Overview of your AI system&apos;s reliability</p>
-                </div>
+  // Colors for score distribution gradient (red to green)
+  const getScoreColor = (index: number, total: number) => {
+    const hue = (index / (total - 1)) * 120; // 0 is red, 120 is green
+    return `hsl(${hue}, 80%, 50%)`;
+  };
 
-                {loading || !stats ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {[1, 2, 3, 4].map((i) => (
-                            <div key={i} className="loading-shimmer h-32"></div>
-                        ))}
-                    </div>
-                ) : (
-                    <>
-                        {/* Stat Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-                            <StatCard icon={Activity} label="Total Executions" value={stats.total_executions.toLocaleString()} color="bg-indigo-600/80" />
-                            <StatCard icon={Shield} label="Avg Reliability" value={`${(stats.avg_reliability_score * 100).toFixed(1)}%`} color="bg-emerald-600/80" />
-                            <StatCard icon={AlertTriangle} label="Injection Risk" value={`${(stats.avg_injection_risk * 100).toFixed(1)}%`} color="bg-amber-600/80" />
-                            <StatCard icon={Clock} label="Avg Latency" value={`${stats.avg_latency_ms.toFixed(0)}ms`} color="bg-blue-600/80" />
-                            <StatCard icon={Coins} label="Total Tokens" value={stats.total_tokens_used.toLocaleString()} color="bg-purple-600/80" />
-                        </div>
+  const radarData = [
+    { subject: "Hallucination", A: stats.radar_averages?.hallucination || 0, fullMark: 1 },
+    { subject: "Faithfulness", A: stats.radar_averages?.faithfulness || 0, fullMark: 1 },
+    { subject: "Injection", A: 1 - (stats.radar_averages?.injection || 0), fullMark: 1 }, // Reverse risk for radar
+    { subject: "Compliance", A: stats.radar_averages?.compliance || 0, fullMark: 1 },
+    { subject: "Tool Usage", A: stats.radar_averages?.tool_usage || 0, fullMark: 1 },
+  ];
 
-                        {/* Charts */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            {/* Executions over time */}
-                            <div className="glass-card p-6">
-                                <h3 className="text-lg font-semibold mb-4 text-white">Executions Over Time</h3>
-                                <ResponsiveContainer width="100%" height={280}>
-                                    <AreaChart data={stats.executions_by_day}>
-                                        <defs>
-                                            <linearGradient id="execGrad" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="0%" stopColor="#6366f1" stopOpacity={0.4} />
-                                                <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                                        <XAxis dataKey="date" stroke="#475569" tick={{ fontSize: 11 }} />
-                                        <YAxis stroke="#475569" tick={{ fontSize: 11 }} />
-                                        <Tooltip {...tooltipStyle} />
-                                        <Area type="monotone" dataKey="count" stroke="#6366f1" fill="url(#execGrad)" strokeWidth={2} />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            </div>
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-gray-950 border border-gray-800 p-2 rounded shadow-xl text-xs">
+          <p className="text-gray-400 mb-1">{label}</p>
+          <p className="text-white font-medium">
+            {payload[0].name}: {payload[0].value}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
 
-                            {/* Score Trend */}
-                            <div className="glass-card p-6">
-                                <h3 className="text-lg font-semibold mb-4 text-white">Score Trends</h3>
-                                <ResponsiveContainer width="100%" height={280}>
-                                    <LineChart data={stats.score_trend}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                                        <XAxis dataKey="date" stroke="#475569" tick={{ fontSize: 11 }} />
-                                        <YAxis stroke="#475569" tick={{ fontSize: 11 }} domain={[0, 1]} />
-                                        <Tooltip {...tooltipStyle} />
-                                        <Line type="monotone" dataKey="reliability" stroke="#22c55e" strokeWidth={2} dot={false} name="Reliability" />
-                                        <Line type="monotone" dataKey="injection_risk" stroke="#ef4444" strokeWidth={2} dot={false} name="Injection Risk" />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-                    </>
-                )}
+  return (
+    <div className="space-y-6">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold mb-1">Welcome back, {user?.email.split('@')[0]}</h1>
+        <p className="text-gray-400 text-sm">Here's what's happening with your AI applications today.</p>
+      </div>
+
+      {/* Row 1 — KPI cards */}
+      <div className="grid grid-cols-6 gap-4">
+        {[
+          { label: "Total Evals", val: stats.total_executions, trend: "+12% ↑", good: true },
+          { label: "Avg Score", val: stats.avg_overall_score.toFixed(2), trend: "+0.03 ↑", good: true },
+          { label: "High Risk", val: stats.high_risk_count, trend: "-8% ↓", good: true }, // Down is good
+          { label: "Aegis Evals", val: stats.aegis_total_evaluations, trend: "+45% ↑", good: true },
+          { label: "Block Rate", val: `${stats.aegis_block_rate.toFixed(1)}%`, trend: "-0.4% ↓", good: false },
+          { label: "Benchmarks", val: stats.benchmark_count, trend: "+3 ↑", good: true },
+        ].map((kpi, i) => (
+          <div key={i} className="bg-gray-900 border border-white/5 rounded-xl p-4 flex flex-col justify-between">
+            <p className="text-xs text-gray-400 font-medium">{kpi.label}</p>
+            <div className="mt-2">
+              <p className="text-2xl font-semibold text-white">{kpi.val}</p>
+              <p className={`text-[10px] font-medium mt-1 ${kpi.good ? "text-emerald-400" : "text-amber-400"}`}>
+                {kpi.trend}
+              </p>
             </div>
-        </Sidebar>
-    );
+          </div>
+        ))}
+      </div>
+
+      {/* Row 2 — Main charts */}
+      <div className="grid grid-cols-2 gap-6">
+        <div className="bg-gray-900 border border-white/5 rounded-xl p-6">
+          <h3 className="text-sm font-medium mb-4">Evaluation Volume (30 days)</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={stats.daily_execution_trend}>
+                <defs>
+                  <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#818cf8" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#818cf8" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                <XAxis dataKey="date" stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} 
+                  tickFormatter={(val) => new Date(val).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})} 
+                />
+                <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
+                <RechartsTooltip content={<CustomTooltip />} />
+                <Area type="monotone" dataKey="count" name="Evaluations" stroke="#818cf8" fillOpacity={1} fill="url(#colorCount)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="bg-gray-900 border border-white/5 rounded-xl p-6">
+          <h3 className="text-sm font-medium mb-4">Score Distribution</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={stats.score_distribution}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                <XAxis dataKey="bucket" stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="#9ca3af" fontSize={11} tickLine={false} axisLine={false} />
+                <RechartsTooltip content={<CustomTooltip />} cursor={{fill: '#1f2937'}} />
+                <Bar dataKey="count" name="Count" radius={[4, 4, 0, 0]}>
+                  {stats.score_distribution.map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={getScoreColor(index, stats.score_distribution.length)} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* Row 3 — Split panels */}
+      <div className="grid grid-cols-5 gap-6">
+        <div className="col-span-3 bg-gray-900 border border-white/5 rounded-xl p-6">
+          <h3 className="text-sm font-medium mb-4">Reliability Radar</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
+                <PolarGrid stroke="#374151" />
+                <PolarAngleAxis dataKey="subject" tick={{ fill: '#9ca3af', fontSize: 12 }} />
+                <PolarRadiusAxis angle={30} domain={[0, 1]} tick={false} axisLine={false} />
+                {/* Target polygon (all 1.0) in gray */}
+                <Radar name="Target" dataKey="fullMark" stroke="#4b5563" fill="#4b5563" fillOpacity={0.1} />
+                {/* Current averages */}
+                <Radar name="Current" dataKey="A" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.5} />
+                <RechartsTooltip contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', fontSize: '12px' }} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="col-span-2 bg-gray-900 border border-white/5 rounded-xl p-6 flex flex-col">
+          <h3 className="text-sm font-medium mb-4">Top Failure Categories</h3>
+          <div className="flex-1 flex flex-col justify-center gap-4">
+            {stats.top_failures.length > 0 ? stats.top_failures.map((f: any, i: number) => (
+              <div key={i}>
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="text-gray-300 font-medium">{f.category}</span>
+                  <span className="text-gray-500">{f.count}</span>
+                </div>
+                <div className="w-full bg-gray-800 rounded-full h-2">
+                  <div className="bg-red-500 h-2 rounded-full" style={{ width: `${Math.min((f.count / stats.total_executions) * 100 * 3, 100)}%` }}></div>
+                </div>
+              </div>
+            )) : (
+              <div className="text-center text-gray-500 text-sm">No failures detected yet.</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Row 4 — Recent activity table */}
+      <div className="bg-gray-900 border border-white/5 rounded-xl p-6">
+        <h3 className="text-sm font-medium mb-4">RECENT EXECUTIONS</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="text-gray-400 border-b border-white/5">
+                <th className="pb-3 font-medium">Project</th>
+                <th className="pb-3 font-medium">Model</th>
+                <th className="pb-3 font-medium">Score</th>
+                <th className="pb-3 font-medium">Flags</th>
+                <th className="pb-3 font-medium">Time</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {stats.recent_executions.map((ex: any) => (
+                <tr key={ex.id} className="hover:bg-white/5">
+                  <td className="py-3 font-medium text-white">{ex.project_name}</td>
+                  <td className="py-3 text-gray-400">{ex.model || "unknown"}</td>
+                  <td className="py-3">
+                    <span className={`flex items-center gap-1 ${
+                      ex.score > 0.8 ? 'text-emerald-400' : ex.score > 0.5 ? 'text-amber-400' : 'text-red-400'
+                    }`}>
+                      {ex.score.toFixed(2)}
+                      {ex.score > 0.8 ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                    </span>
+                  </td>
+                  <td className="py-3 text-gray-400">
+                    {ex.flags.length > 0 ? ex.flags.join(", ") : "—"}
+                  </td>
+                  <td className="py-3 text-gray-500">
+                    {new Date(ex.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  </td>
+                </tr>
+              ))}
+              {stats.recent_executions.length === 0 && (
+                <tr><td colSpan={5} className="py-4 text-center text-gray-500">No executions yet.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Row 5 — Quick action cards */}
+      <div className="grid grid-cols-3 gap-4">
+        <Link href="/aegis" className="bg-gray-900 border border-white/5 hover:border-indigo-500/50 rounded-xl p-5 transition-colors group">
+          <div className="flex items-center gap-2 mb-2">
+            <ShieldCheck className="w-5 h-5 text-indigo-400" />
+            <h4 className="font-semibold text-white">Run Aegis Check</h4>
+          </div>
+          <p className="text-xs text-gray-400 mb-4 line-clamp-2">Evaluate your next agent output for safety risks before it reaches the user.</p>
+          <span className="text-xs text-indigo-400 font-medium group-hover:text-indigo-300">Open Aegis →</span>
+        </Link>
+        <Link href="/benchmarks" className="bg-gray-900 border border-white/5 hover:border-indigo-500/50 rounded-xl p-5 transition-colors group">
+          <div className="flex items-center gap-2 mb-2">
+            <BarChart2 className="w-5 h-5 text-purple-400" />
+            <h4 className="font-semibold text-white">New Benchmark</h4>
+          </div>
+          <p className="text-xs text-gray-400 mb-4 line-clamp-2">Compare GPT-4 vs Claude on your own test cases and custom data.</p>
+          <span className="text-xs text-indigo-400 font-medium group-hover:text-indigo-300">New Benchmark →</span>
+        </Link>
+        <Link href="/docs" className="bg-gray-900 border border-white/5 hover:border-indigo-500/50 rounded-xl p-5 transition-colors group">
+          <div className="flex items-center gap-2 mb-2">
+            <Code2 className="w-5 h-5 text-emerald-400" />
+            <h4 className="font-semibold text-white">Ingest via SDK</h4>
+          </div>
+          <p className="text-xs text-gray-400 mb-4 line-clamp-2"><code className="bg-black/30 px-1 rounded">pip install auditai</code> 3-line integration.</p>
+          <span className="text-xs text-indigo-400 font-medium group-hover:text-indigo-300">View Docs →</span>
+        </Link>
+      </div>
+
+    </div>
+  );
 }

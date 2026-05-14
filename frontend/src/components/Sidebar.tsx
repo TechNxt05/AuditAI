@@ -2,13 +2,37 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { LayoutDashboard, FolderKanban, AlertTriangle, LogOut, Shield, Zap } from "lucide-react";
+import { 
+    LayoutDashboard, FolderKanban, AlertTriangle, LogOut, Shield, Zap,
+    Activity, ShieldCheck, BarChart2, RefreshCcw, Code2
+} from "lucide-react";
 import { ReactNode } from "react";
 
-const NAV = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/projects", label: "Projects", icon: FolderKanban },
-    { href: "/risks", label: "Risk Insights", icon: AlertTriangle },
+const NAV_SECTIONS = [
+    {
+        items: [
+            { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+            { href: "/projects", label: "Projects", icon: FolderKanban },
+        ]
+    },
+    {
+        items: [
+            { href: "/executions", label: "Executions", icon: Activity },
+            { href: "/aegis", label: "Runtime Safety", icon: ShieldCheck },
+            { href: "/benchmarks", label: "Benchmarks", icon: BarChart2 },
+        ]
+    },
+    {
+        items: [
+            { href: "/risks", label: "Risk Insights", icon: AlertTriangle },
+            { href: "/replay", label: "Replay Engine", icon: RefreshCcw },
+        ]
+    },
+    {
+        items: [
+            { href: "/docs", label: "SDK & Docs", icon: Code2 },
+        ]
+    }
 ];
 
 export default function Sidebar({ children }: { children: ReactNode }) {
@@ -31,34 +55,46 @@ export default function Sidebar({ children }: { children: ReactNode }) {
                 </Link>
 
                 {/* Navigation */}
-                <nav className="flex-1 px-3 py-4 space-y-1">
-                    {NAV.map((item) => {
-                        const active = pathname.startsWith(item.href);
-                        return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className={`sidebar-link ${active ? "active" : ""}`}
-                            >
-                                <item.icon className="w-5 h-5" />
-                                <span className="text-sm font-medium">{item.label}</span>
-                            </Link>
-                        );
-                    })}
+                <nav className="flex-1 px-3 py-4 overflow-y-auto custom-scrollbar space-y-4">
+                    {NAV_SECTIONS.map((section, idx) => (
+                        <div key={idx} className="space-y-1">
+                            {idx > 0 && <div className="h-px bg-white/5 mx-2 my-3" />}
+                            {section.items.map((item) => {
+                                const active = pathname.startsWith(item.href);
+                                return (
+                                    <Link
+                                        key={item.href}
+                                        href={item.href}
+                                        className={`sidebar-link ${active ? "active" : ""}`}
+                                    >
+                                        <item.icon className="w-5 h-5" />
+                                        <span className="text-sm font-medium">{item.label}</span>
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    ))}
                 </nav>
 
                 {/* User info */}
                 <div className="border-t border-white/5 p-4">
                     {user && (
                         <div className="flex items-center justify-between">
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                                 <p className="text-sm text-white truncate">{user.email}</p>
-                                <div className="flex items-center gap-1 mt-0.5">
-                                    <Zap className="w-3 h-3 text-indigo-400" />
-                                    <span className="text-xs text-gray-400 capitalize">{user.plan_tier}</span>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <div className="flex items-center gap-1">
+                                        <Zap className="w-3 h-3 text-indigo-400" />
+                                        <span className="text-xs text-gray-400 capitalize">{user.plan_tier} Plan</span>
+                                    </div>
+                                    {user.plan_tier === "free" && (
+                                        <span className="text-[10px] text-indigo-400 font-medium hover:text-indigo-300 cursor-pointer">
+                                            ▸ Upgrade
+                                        </span>
+                                    )}
                                 </div>
                             </div>
-                            <button onClick={logout} className="p-2 rounded-lg hover:bg-white/5 transition-colors" title="Logout">
+                            <button onClick={logout} className="p-2 rounded-lg hover:bg-white/5 transition-colors ml-2" title="Logout">
                                 <LogOut className="w-4 h-4 text-gray-400" />
                             </button>
                         </div>

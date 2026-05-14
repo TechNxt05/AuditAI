@@ -10,12 +10,12 @@ import {
 } from "lucide-react";
 import {
     ReactFlow, Background, Controls, MarkerType,
-    type Node, type Edge,
+    type Node, type Edge, Handle, Position
 } from "reactflow";
 import "reactflow/dist/style.css";
 import {
     RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-    ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
+    ResponsiveContainer, Tooltip as RechartsTooltip,
 } from "recharts";
 
 interface TraceStep {
@@ -63,57 +63,70 @@ const stepIcon: Record<string, any> = {
 };
 
 const stepColor: Record<string, string> = {
-    prompt: "#6366f1",
-    system_prompt: "#8b5cf6",
-    retrieval: "#3b82f6",
-    tool_call: "#f59e0b",
-    tool_output: "#22c55e",
-    response: "#ec4899",
+    prompt: "#818cf8", // indigo-400
+    system_prompt: "#a78bfa", // purple-400
+    retrieval: "#60a5fa", // blue-400
+    tool_call: "#fbbf24", // amber-400
+    tool_output: "#34d399", // emerald-400
+    response: "#f472b6", // pink-400
 };
 
-function buildFlowGraph(steps: TraceStep[]): { nodes: Node[]; edges: Edge[] } {
-    const nodes: Node[] = steps.map((step, i) => ({
-        id: step.id,
-        position: { x: 60, y: i * 120 },
-        data: {
-            label: (
-                <div className="text-left min-w-[200px]">
-                    <div className="flex items-center gap-2 mb-1">
-                        <div className="w-2 h-2 rounded-full" style={{ background: stepColor[step.step_type] || "#666" }}></div>
-                        <span className="font-bold text-xs uppercase tracking-wide" style={{ color: stepColor[step.step_type] }}>
-                            {step.step_type.replace("_", " ")}
-                        </span>
-                        <span className="text-[10px] text-gray-500 ml-auto">{step.latency_ms.toFixed(0)}ms</span>
+// Custom Node for premium look
+const CustomNode = ({ data }: any) => {
+    return (
+        <div className="bg-gray-900 border border-white/10 rounded-xl p-4 shadow-xl min-w-[250px] max-w-[300px]">
+            <Handle type="target" position={Position.Top} className="!bg-indigo-500 !w-3 !h-3 !border-gray-900" />
+            <div className="flex items-center justify-between mb-2 pb-2 border-b border-white/5">
+                <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-md flex items-center justify-center bg-white/5" style={{ color: data.color }}>
+                        {data.icon}
                     </div>
-                    <p className="text-xs text-gray-300 line-clamp-2">
-                        {step.content?.text || JSON.stringify(step.content).slice(0, 100)}
-                    </p>
+                    <span className="font-semibold text-xs uppercase tracking-wide text-white">
+                        {data.type.replace("_", " ")}
+                    </span>
                 </div>
-            ),
-        },
-        type: "default",
-    }));
+                <span className="text-[10px] font-mono text-gray-500 bg-black/30 px-1.5 py-0.5 rounded">
+                    {data.latency}ms
+                </span>
+            </div>
+            <p className="text-xs text-gray-300 font-mono leading-relaxed line-clamp-3">
+                {data.content}
+            </p>
+            <Handle type="source" position={Position.Bottom} className="!bg-indigo-500 !w-3 !h-3 !border-gray-900" />
+        </div>
+    );
+};
+
+const nodeTypes = { custom: CustomNode };
+
+function buildFlowGraph(steps: TraceStep[]): { nodes: Node[]; edges: Edge[] } {
+    const nodes: Node[] = steps.map((step, i) => {
+        const IconComponent = stepIcon[step.step_type] || FileText;
+        return {
+            id: step.id,
+            position: { x: 100, y: i * 160 },
+            type: "custom",
+            data: {
+                type: step.step_type,
+                latency: step.latency_ms.toFixed(0),
+                content: step.content?.text || JSON.stringify(step.content).slice(0, 100),
+                color: stepColor[step.step_type] || "#9ca3af",
+                icon: <IconComponent className="w-3.5 h-3.5" />
+            },
+        };
+    });
 
     const edges: Edge[] = steps.slice(1).map((step, i) => ({
         id: `e-${steps[i].id}-${step.id}`,
         source: steps[i].id,
         target: step.id,
         animated: true,
-        markerEnd: { type: MarkerType.ArrowClosed, color: "#6366f1" },
-        style: { stroke: "#6366f1", strokeWidth: 2 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: "#818cf8" },
+        style: { stroke: "#818cf8", strokeWidth: 2, opacity: 0.5 },
     }));
 
     return { nodes, edges };
 }
-
-const tooltipStyle = {
-    contentStyle: {
-        background: "rgba(15,23,42,0.95)",
-        border: "1px solid rgba(255,255,255,0.1)",
-        borderRadius: "12px",
-        color: "#e2e8f0",
-    },
-};
 
 export default function ExecutionDetailPage() {
     const { user, loading: authLoading } = useAuth();
@@ -237,6 +250,7 @@ export default function ExecutionDetailPage() {
                             <ReactFlow
                                 nodes={nodes}
                                 edges={edges}
+                                nodeTypes={nodeTypes}
                                 fitView
                                 proOptions={{ hideAttribution: true }}
                             >
