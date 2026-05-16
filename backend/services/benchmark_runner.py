@@ -4,7 +4,7 @@ from models import Benchmark, BenchmarkResult
 from evaluator.hallucination import detect_hallucination
 from evaluator.injection import detect_injection
 from evaluator.faithfulness import score_faithfulness
-from evaluator.compliance import score_compliance
+from evaluator.compliance import check_compliance
 
 def aggregate_results(model_results: list) -> dict:
     if not model_results:
@@ -35,7 +35,7 @@ def run_full_evaluation(prompt: str, response: str, context_docs: list) -> dict:
     hallucination = detect_hallucination(response, context_docs)
     injection = detect_injection(prompt)
     faithfulness = score_faithfulness(response, context_docs)
-    compliance = score_compliance(response)
+    compliance, _ = check_compliance(response)
     
     # Just return raw scores here
     return {
