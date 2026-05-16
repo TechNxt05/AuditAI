@@ -1,8 +1,12 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func, cast, Date
+from datetime import datetime, timedelta
 from database import get_db
 from models import Execution, Evaluation, Project, User, AegisTrace, Benchmark
+from deps import get_current_user
+
+router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 @router.get("/stats")
 def get_dashboard_stats(

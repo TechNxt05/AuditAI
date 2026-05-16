@@ -7,7 +7,7 @@ from models import User, Project, Benchmark, BenchmarkResult
 from services.benchmark_runner import execute_benchmark
 from database import SessionLocal
 
-router = APIRouter(prefix="/api/benchmarks", tags=["benchmarks"])
+router = APIRouter(prefix="/benchmarks", tags=["benchmarks"])
 
 class TestCase(BaseModel):
     id: Optional[str] = None
